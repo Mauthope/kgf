@@ -7,21 +7,53 @@
   <style>
     body { font-family: Arial; margin: 20px; }
     h2 { margin-top: 30px; }
-    input, button { margin: 5px; padding: 5px; }
+    input, select, button { margin: 5px; padding: 5px; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
     th { background: #eee; }
     .highlight { font-weight: bold; }
+    .group { margin-bottom: 10px; }
   </style>
 </head>
 <body>
   <h1>Testador de Hipóteses</h1>
-  <div>
+
+  <div class="group">
     <label>Distância: <input type="number" id="distancia" /></label>
     <label>Temperatura: <input type="number" id="temperatura" /></label>
-    <label>Vazão: <input type="number" id="vazao" /></label><br/>
-    <label>KgF Interno: <input type="number" id="kgfInterno" /></label>
-    <label>KgF Externo: <input type="number" id="kgfExterno" /></label>
+    <label>Vazão: <input type="number" id="vazao" /></label>
+  </div>
+
+  <div class="group">
+    <fieldset>
+      <legend>KgF Interno (5 testes)</legend>
+      <input type="number" id="ki1" />
+      <input type="number" id="ki2" />
+      <input type="number" id="ki3" />
+      <input type="number" id="ki4" />
+      <input type="number" id="ki5" />
+    </fieldset>
+  </div>
+
+  <div class="group">
+    <fieldset>
+      <legend>KgF Externo (5 testes)</legend>
+      <input type="number" id="ke1" />
+      <input type="number" id="ke2" />
+      <input type="number" id="ke3" />
+      <input type="number" id="ke4" />
+      <input type="number" id="ke5" />
+    </fieldset>
+  </div>
+
+  <div class="group">
+    <label>Queda:
+      <select id="queda">
+        <option value="">Selecione</option>
+        <option value="Aprovado">Aprovado</option>
+        <option value="Reprovado">Reprovado</option>
+      </select>
+    </label>
     <button onclick="adicionarAmostra()">Adicionar</button>
     <button onclick="exportarCSV()">Exportar CSV</button>
   </div>
@@ -34,9 +66,10 @@
         <th>Distância</th>
         <th>Temperatura</th>
         <th>Vazão</th>
-        <th>KgF Interno</th>
-        <th>KgF Externo</th>
+        <th>KgF Int. (média)</th>
+        <th>KgF Ext. (média)</th>
         <th>KgF Total</th>
+        <th>Queda</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -61,18 +94,30 @@
       localStorage.setItem("amostras", JSON.stringify(amostras));
     }
 
+    function calcularMedia(valores) {
+      const soma = valores.reduce((a, b) => a + b, 0);
+      return soma / valores.length;
+    }
+
     function adicionarAmostra() {
       const distancia = parseFloat(document.getElementById("distancia").value);
       const temperatura = parseFloat(document.getElementById("temperatura").value);
       const vazao = parseFloat(document.getElementById("vazao").value);
-      const kgfInterno = parseFloat(document.getElementById("kgfInterno").value);
-      const kgfExterno = parseFloat(document.getElementById("kgfExterno").value);
-      if ([distancia, temperatura, vazao, kgfInterno, kgfExterno].some(v => isNaN(v))) {
-        alert("Preencha todos os campos com valores válidos.");
+      const queda = document.getElementById("queda").value;
+
+      const ki = [1,2,3,4,5].map(i => parseFloat(document.getElementById(`ki${i}`).value));
+      const ke = [1,2,3,4,5].map(i => parseFloat(document.getElementById(`ke${i}`).value));
+
+      if ([distancia, temperatura, vazao].some(v => isNaN(v)) ||
+          ki.some(v => isNaN(v)) || ke.some(v => isNaN(v)) || queda === "") {
+        alert("Preencha todos os campos corretamente.");
         return;
       }
 
-      const nova = { distancia, temperatura, vazao, kgfInterno, kgfExterno };
+      const mediaKI = calcularMedia(ki);
+      const mediaKE = calcularMedia(ke);
+
+      const nova = { distancia, temperatura, vazao, mediaKI, mediaKE, queda };
       const amostras = obterAmostras();
       amostras.push(nova);
       salvarAmostras(amostras);
@@ -83,29 +128,32 @@
     function atualizarTabela() {
       const amostras = obterAmostras();
       tabela.innerHTML = "";
+
       amostras.forEach((a, i) => {
-        const kgfTotal = a.kgfInterno + a.kgfExterno;
+        const total = a.mediaKI + a.mediaKE;
         tabela.innerHTML += `
           <tr>
             <td>${i + 1}</td>
             <td>${a.distancia}</td>
             <td>${a.temperatura}</td>
             <td>${a.vazao}</td>
-            <td>${a.kgfInterno}</td>
-            <td>${a.kgfExterno}</td>
-            <td>${kgfTotal.toFixed(2)}</td>
+            <td>${a.mediaKI.toFixed(2)}</td>
+            <td>${a.mediaKE.toFixed(2)}</td>
+            <td>${total.toFixed(2)}</td>
+            <td>${a.queda}</td>
           </tr>`;
       });
 
       if (amostras.length > 0) {
         const melhor = amostras.reduce((a, b) =>
-          (a.kgfInterno + a.kgfExterno) > (b.kgfInterno + b.kgfExterno) ? a : b
+          (a.mediaKI + a.mediaKE) > (b.mediaKI + b.mediaKE) ? a : b
         );
         const pior = amostras.reduce((a, b) =>
-          (a.kgfInterno + a.kgfExterno) < (b.kgfInterno + b.kgfExterno) ? a : b
+          (a.mediaKI + a.mediaKE) < (b.mediaKI + b.mediaKE) ? a : b
         );
-        melhorDiv.textContent = `Dist: ${melhor.distancia}, Temp: ${melhor.temperatura}, Vazão: ${melhor.vazao}, KgF Total: ${(melhor.kgfInterno + melhor.kgfExterno).toFixed(2)}`;
-        piorDiv.textContent = `Dist: ${pior.distancia}, Temp: ${pior.temperatura}, Vazão: ${pior.vazao}, KgF Total: ${(pior.kgfInterno + pior.kgfExterno).toFixed(2)}`;
+
+        melhorDiv.textContent = `Dist: ${melhor.distancia}, Temp: ${melhor.temperatura}, Vazão: ${melhor.vazao}, KgF Total: ${(melhor.mediaKI + melhor.mediaKE).toFixed(2)}`;
+        piorDiv.textContent = `Dist: ${pior.distancia}, Temp: ${pior.temperatura}, Vazão: ${pior.vazao}, KgF Total: ${(pior.mediaKI + pior.mediaKE).toFixed(2)}`;
       } else {
         melhorDiv.textContent = "-";
         piorDiv.textContent = "-";
@@ -113,11 +161,8 @@
     }
 
     function limparCampos() {
-      document.getElementById("distancia").value = "";
-      document.getElementById("temperatura").value = "";
-      document.getElementById("vazao").value = "";
-      document.getElementById("kgfInterno").value = "";
-      document.getElementById("kgfExterno").value = "";
+      document.querySelectorAll("input").forEach(input => input.value = "");
+      document.getElementById("queda").value = "";
     }
 
     function exportarCSV() {
@@ -127,12 +172,12 @@
         return;
       }
 
-      const header = "Distância,Temperatura,Vazão,KgF Interno,KgF Externo,KgF Total\n";
+      const header = "Distância,Temperatura,Vazão,KgF Interno (média),KgF Externo (média),KgF Total,Queda\n";
       const linhas = amostras.map(a =>
-        `${a.distancia},${a.temperatura},${a.vazao},${a.kgfInterno},${a.kgfExterno},${(a.kgfInterno + a.kgfExterno).toFixed(2)}`
+        `${a.distancia},${a.temperatura},${a.vazao},${a.mediaKI.toFixed(2)},${a.mediaKE.toFixed(2)},${(a.mediaKI + a.mediaKE).toFixed(2)},${a.queda}`
       ).join("\n");
-      const csv = header + linhas;
 
+      const csv = header + linhas;
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
