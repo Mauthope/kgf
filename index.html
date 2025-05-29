@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Testador de Hipóteses</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    h2 { margin-top: 30px; }
+    input, button { margin: 5px; padding: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #eee; }
+    .highlight { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Testador de Hipóteses</h1>
+  <div>
+    <label>Distância: <input type="number" id="distancia" /></label>
+    <label>Temperatura: <input type="number" id="temperatura" /></label>
+    <label>Vazão: <input type="number" id="vazao" /></label><br/>
+    <label>KgF Interno: <input type="number" id="kgfInterno" /></label>
+    <label>KgF Externo: <input type="number" id="kgfExterno" /></label>
+    <button onclick="adicionarAmostra()">Adicionar</button>
+    <button onclick="exportarCSV()">Exportar CSV</button>
+  </div>
+
+  <h2>Amostras Registradas</h2>
+  <table id="tabelaAmostras">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Distância</th>
+        <th>Temperatura</th>
+        <th>Vazão</th>
+        <th>KgF Interno</th>
+        <th>KgF Externo</th>
+        <th>KgF Total</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Melhor Amostra (KgF Total Máximo)</h2>
+  <div id="melhor" class="highlight"></div>
+
+  <h2>Pior Amostra (KgF Total Mínimo)</h2>
+  <div id="pior" class="highlight"></div>
+
+  <script>
+    const tabela = document.querySelector("#tabelaAmostras tbody");
+    const melhorDiv = document.getElementById("melhor");
+    const piorDiv = document.getElementById("pior");
+
+    function obterAmostras() {
+      return JSON.parse(localStorage.getItem("amostras") || "[]");
+    }
+
+    function salvarAmostras(amostras) {
+      localStorage.setItem("amostras", JSON.stringify(amostras));
+    }
+
+    function adicionarAmostra() {
+      const distancia = parseFloat(document.getElementById("distancia").value);
+      const temperatura = parseFloat(document.getElementById("temperatura").value);
+      const vazao = parseFloat(document.getElementById("vazao").value);
+      const kgfInterno = parseFloat(document.getElementById("kgfInterno").value);
+      const kgfExterno = parseFloat(document.getElementById("kgfExterno").value);
+      if ([distancia, temperatura, vazao, kgfInterno, kgfExterno].some(v => isNaN(v))) {
+        alert("Preencha todos os campos com valores válidos.");
+        return;
+      }
+
+      const nova = { distancia, temperatura, vazao, kgfInterno, kgfExterno };
+      const amostras = obterAmostras();
+      amostras.push(nova);
+      salvarAmostras(amostras);
+      atualizarTabela();
+      limparCampos();
+    }
+
+    function atualizarTabela() {
+      const amostras = obterAmostras();
+      tabela.innerHTML = "";
+      amostras.forEach((a, i) => {
+        const kgfTotal = a.kgfInterno + a.kgfExterno;
+        tabela.innerHTML += `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${a.distancia}</td>
+            <td>${a.temperatura}</td>
+            <td>${a.vazao}</td>
+            <td>${a.kgfInterno}</td>
+            <td>${a.kgfExterno}</td>
+            <td>${kgfTotal.toFixed(2)}</td>
+          </tr>`;
+      });
+
+      if (amostras.length > 0) {
+        const melhor = amostras.reduce((a, b) =>
+          (a.kgfInterno + a.kgfExterno) > (b.kgfInterno + b.kgfExterno) ? a : b
+        );
+        const pior = amostras.reduce((a, b) =>
+          (a.kgfInterno + a.kgfExterno) < (b.kgfInterno + b.kgfExterno) ? a : b
+        );
+        melhorDiv.textContent = `Dist: ${melhor.distancia}, Temp: ${melhor.temperatura}, Vazão: ${melhor.vazao}, KgF Total: ${(melhor.kgfInterno + melhor.kgfExterno).toFixed(2)}`;
+        piorDiv.textContent = `Dist: ${pior.distancia}, Temp: ${pior.temperatura}, Vazão: ${pior.vazao}, KgF Total: ${(pior.kgfInterno + pior.kgfExterno).toFixed(2)}`;
+      } else {
+        melhorDiv.textContent = "-";
+        piorDiv.textContent = "-";
+      }
+    }
+
+    function limparCampos() {
+      document.getElementById("distancia").value = "";
+      document.getElementById("temperatura").value = "";
+      document.getElementById("vazao").value = "";
+      document.getElementById("kgfInterno").value = "";
+      document.getElementById("kgfExterno").value = "";
+    }
+
+    function exportarCSV() {
+      const amostras = obterAmostras();
+      if (amostras.length === 0) {
+        alert("Nenhuma amostra para exportar.");
+        return;
+      }
+
+      const header = "Distância,Temperatura,Vazão,KgF Interno,KgF Externo,KgF Total\n";
+      const linhas = amostras.map(a =>
+        `${a.distancia},${a.temperatura},${a.vazao},${a.kgfInterno},${a.kgfExterno},${(a.kgfInterno + a.kgfExterno).toFixed(2)}`
+      ).join("\n");
+      const csv = header + linhas;
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "amostras.csv");
+      link.click();
+    }
+
+    atualizarTabela();
+  </script>
+</body>
+</html>
