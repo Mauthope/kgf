@@ -1,192 +1,120 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Testador de Hipóteses</title>
   <style>
-    body { font-family: Arial; margin: 20px; }
-    h2 { margin-top: 30px; }
-    input, select, button { margin: 5px; padding: 5px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: auto; }
+    input, button { margin: 5px; padding: 8px; }
+    table { width: 100%; margin-top: 20px; border-collapse: collapse; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background: #eee; }
-    .highlight { font-weight: bold; }
-    .group { margin-bottom: 10px; }
+    th { background-color: #f4f4f4; }
+    .popup { display: none; position: fixed; top: 20%; left: 30%; background: white; border: 1px solid #000; padding: 20px; z-index: 1000; }
+    .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; }
   </style>
 </head>
 <body>
-  <h1>Testador de Hipóteses</h1>
 
-  <div class="group">
-    <label>Distância: <input type="number" id="distancia" /></label>
-    <label>Temperatura: <input type="number" id="temperatura" /></label>
-    <label>Vazão: <input type="number" id="vazao" /></label>
-  </div>
+<h2>Testador de Hipóteses</h2>
 
-  <div class="group">
-    <fieldset>
-      <legend>KgF Interno (5 testes)</legend>
-      <input type="number" id="ki1" />
-      <input type="number" id="ki2" />
-      <input type="number" id="ki3" />
-      <input type="number" id="ki4" />
-      <input type="number" id="ki5" />
-    </fieldset>
-  </div>
+<form id="formulario">
+  <label>Distância (cm): <input type="number" step="0.01" id="distancia" required></label><br>
+  <label>Temperatura (°C): <input type="number" step="0.01" id="temperatura" required></label><br>
+  <label>Vazão: <input type="number" step="0.01" id="vazao" required></label><br>
+  <button type="button" onclick="abrirPopup('interno')">Inserir KgF Interno</button>
+  <button type="button" onclick="abrirPopup('externo')">Inserir KgF Externo</button>
+  <button type="button" onclick="abrirPopup('queda')">Inserir Valores de Queda</button><br>
+  <button type="submit">Salvar Dados</button>
+</form>
 
-  <div class="group">
-    <fieldset>
-      <legend>KgF Externo (5 testes)</legend>
-      <input type="number" id="ke1" />
-      <input type="number" id="ke2" />
-      <input type="number" id="ke3" />
-      <input type="number" id="ke4" />
-      <input type="number" id="ke5" />
-    </fieldset>
-  </div>
+<h3>Resultados</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Distância</th><th>Temperatura</th><th>Vazão</th>
+      <th>KgF Interno</th><th>KgF Externo</th><th>Queda</th>
+    </tr>
+  </thead>
+  <tbody id="resultado"></tbody>
+</table>
 
-  <div class="group">
-    <label>Queda:
-      <select id="queda">
-        <option value="">Selecione</option>
-        <option value="Aprovado">Aprovado</option>
-        <option value="Reprovado">Reprovado</option>
-      </select>
-    </label>
-    <button onclick="adicionarAmostra()">Adicionar</button>
-    <button onclick="exportarCSV()">Exportar CSV</button>
-  </div>
+<div class="overlay" id="overlay"></div>
+<div class="popup" id="popup">
+  <h4 id="popup-titulo"></h4>
+  <div id="popup-inputs"></div>
+  <button onclick="fecharPopup(true)">Confirmar</button>
+  <button onclick="fecharPopup(false)">Cancelar</button>
+</div>
 
-  <h2>Amostras Registradas</h2>
-  <table id="tabelaAmostras">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Distância</th>
-        <th>Temperatura</th>
-        <th>Vazão</th>
-        <th>KgF Int. (média)</th>
-        <th>KgF Ext. (média)</th>
-        <th>KgF Total</th>
-        <th>Queda</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<script>
+  let dados = JSON.parse(localStorage.getItem('amostras')) || [];
+  let tipoAtual = '', valoresTemp = [];
 
-  <h2>Melhor Amostra (KgF Total Máximo)</h2>
-  <div id="melhor" class="highlight"></div>
+  function renderizarTabela() {
+    const tbody = document.getElementById('resultado');
+    tbody.innerHTML = '';
+    dados.forEach(item => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${item.distancia}</td>
+          <td>${item.temperatura}</td>
+          <td>${item.vazao}</td>
+          <td>${item.kgfInterno}</td>
+          <td>${item.kgfExterno}</td>
+          <td style="color:${item.quedaStatus === 'Reprovado' ? 'red' : 'green'}">${item.quedaStatus}</td>
+        </tr>
+      `;
+    });
+  }
 
-  <h2>Pior Amostra (KgF Total Mínimo)</h2>
-  <div id="pior" class="highlight"></div>
-
-  <script>
-    const tabela = document.querySelector("#tabelaAmostras tbody");
-    const melhorDiv = document.getElementById("melhor");
-    const piorDiv = document.getElementById("pior");
-
-    function obterAmostras() {
-      return JSON.parse(localStorage.getItem("amostras") || "[]");
+  function abrirPopup(tipo) {
+    tipoAtual = tipo;
+    valoresTemp = [];
+    const inputsDiv = document.getElementById('popup-inputs');
+    inputsDiv.innerHTML = '';
+    document.getElementById('popup-titulo').innerText = 
+      tipo === 'queda' ? 'Inserir 5 valores da Queda' : `Inserir 5 valores de KgF ${tipo === 'interno' ? 'Interno' : 'Externo'}`;
+    for (let i = 0; i < 5; i++) {
+      inputsDiv.innerHTML += `<input type="number" step="0.01" id="valor${i}" required><br>`;
     }
+    document.getElementById('overlay').style.display = 'block';
+    document.getElementById('popup').style.display = 'block';
+  }
 
-    function salvarAmostras(amostras) {
-      localStorage.setItem("amostras", JSON.stringify(amostras));
-    }
-
-    function calcularMedia(valores) {
-      const soma = valores.reduce((a, b) => a + b, 0);
-      return soma / valores.length;
-    }
-
-    function adicionarAmostra() {
-      const distancia = parseFloat(document.getElementById("distancia").value);
-      const temperatura = parseFloat(document.getElementById("temperatura").value);
-      const vazao = parseFloat(document.getElementById("vazao").value);
-      const queda = document.getElementById("queda").value;
-
-      const ki = [1,2,3,4,5].map(i => parseFloat(document.getElementById(`ki${i}`).value));
-      const ke = [1,2,3,4,5].map(i => parseFloat(document.getElementById(`ke${i}`).value));
-
-      if ([distancia, temperatura, vazao].some(v => isNaN(v)) ||
-          ki.some(v => isNaN(v)) || ke.some(v => isNaN(v)) || queda === "") {
-        alert("Preencha todos os campos corretamente.");
-        return;
+  function fecharPopup(confirmar) {
+    if (confirmar) {
+      for (let i = 0; i < 5; i++) {
+        valoresTemp.push(parseFloat(document.getElementById('valor'+i).value));
       }
-
-      const mediaKI = calcularMedia(ki);
-      const mediaKE = calcularMedia(ke);
-
-      const nova = { distancia, temperatura, vazao, mediaKI, mediaKE, queda };
-      const amostras = obterAmostras();
-      amostras.push(nova);
-      salvarAmostras(amostras);
-      atualizarTabela();
-      limparCampos();
-    }
-
-    function atualizarTabela() {
-      const amostras = obterAmostras();
-      tabela.innerHTML = "";
-
-      amostras.forEach((a, i) => {
-        const total = a.mediaKI + a.mediaKE;
-        tabela.innerHTML += `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${a.distancia}</td>
-            <td>${a.temperatura}</td>
-            <td>${a.vazao}</td>
-            <td>${a.mediaKI.toFixed(2)}</td>
-            <td>${a.mediaKE.toFixed(2)}</td>
-            <td>${total.toFixed(2)}</td>
-            <td>${a.queda}</td>
-          </tr>`;
-      });
-
-      if (amostras.length > 0) {
-        const melhor = amostras.reduce((a, b) =>
-          (a.mediaKI + a.mediaKE) > (b.mediaKI + b.mediaKE) ? a : b
-        );
-        const pior = amostras.reduce((a, b) =>
-          (a.mediaKI + a.mediaKE) < (b.mediaKI + b.mediaKE) ? a : b
-        );
-
-        melhorDiv.textContent = `Dist: ${melhor.distancia}, Temp: ${melhor.temperatura}, Vazão: ${melhor.vazao}, KgF Total: ${(melhor.mediaKI + melhor.mediaKE).toFixed(2)}`;
-        piorDiv.textContent = `Dist: ${pior.distancia}, Temp: ${pior.temperatura}, Vazão: ${pior.vazao}, KgF Total: ${(pior.mediaKI + pior.mediaKE).toFixed(2)}`;
+      if (tipoAtual === 'queda') {
+        let reprovado = valoresTemp.some(v => v < 5); // exemplo: valor mínimo 5
+        sessionStorage.setItem('quedaStatus', reprovado ? 'Reprovado' : 'Aprovado');
       } else {
-        melhorDiv.textContent = "-";
-        piorDiv.textContent = "-";
+        let media = valoresTemp.reduce((a,b) => a + b, 0) / valoresTemp.length;
+        sessionStorage.setItem(`kgf${tipoAtual.charAt(0).toUpperCase() + tipoAtual.slice(1)}`, media.toFixed(2));
       }
     }
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('popup').style.display = 'none';
+  }
 
-    function limparCampos() {
-      document.querySelectorAll("input").forEach(input => input.value = "");
-      document.getElementById("queda").value = "";
-    }
+  document.getElementById('formulario').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const distancia = parseFloat(document.getElementById('distancia').value);
+    const temperatura = parseFloat(document.getElementById('temperatura').value);
+    const vazao = parseFloat(document.getElementById('vazao').value);
+    const kgfInterno = sessionStorage.getItem('kgfInterno') || '0';
+    const kgfExterno = sessionStorage.getItem('kgfExterno') || '0';
+    const quedaStatus = sessionStorage.getItem('quedaStatus') || 'Reprovado';
 
-    function exportarCSV() {
-      const amostras = obterAmostras();
-      if (amostras.length === 0) {
-        alert("Nenhuma amostra para exportar.");
-        return;
-      }
+    dados.push({ distancia, temperatura, vazao, kgfInterno, kgfExterno, quedaStatus });
+    localStorage.setItem('amostras', JSON.stringify(dados));
+    renderizarTabela();
+    this.reset();
+  });
 
-      const header = "Distância,Temperatura,Vazão,KgF Interno (média),KgF Externo (média),KgF Total,Queda\n";
-      const linhas = amostras.map(a =>
-        `${a.distancia},${a.temperatura},${a.vazao},${a.mediaKI.toFixed(2)},${a.mediaKE.toFixed(2)},${(a.mediaKI + a.mediaKE).toFixed(2)},${a.queda}`
-      ).join("\n");
+  renderizarTabela();
+</script>
 
-      const csv = header + linhas;
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", "amostras.csv");
-      link.click();
-    }
-
-    atualizarTabela();
-  </script>
 </body>
 </html>
