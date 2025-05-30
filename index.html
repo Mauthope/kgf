@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Captura de Foto com Nome Personalizado</title>
+  <title>Captura de Foto com Câmera Traseira</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -17,9 +17,10 @@
       padding: 0.5rem;
       font-size: 1rem;
     }
-    video, canvas, img {
+    video {
       max-width: 100%;
       margin: 1rem 0;
+      border: 1px solid #ccc;
     }
   </style>
 </head>
@@ -28,20 +29,25 @@
   <input type="number" id="distancia" placeholder="Distância">
   <input type="number" id="temperatura" placeholder="Temperatura">
   <input type="number" id="vazao" placeholder="Vazão">
-  <button id="start">Iniciar Câmera</button>
-  <video id="video" autoplay playsinline width="320"></video>
+  <button id="start">Iniciar Câmera Traseira</button>
+  <video id="video" autoplay playsinline></video>
   <button id="capture">Capturar e Baixar</button>
 
   <script>
     const video = document.getElementById('video');
     const startBtn = document.getElementById('start');
     const captureBtn = document.getElementById('capture');
-
     let stream;
 
     startBtn.onclick = async () => {
-      stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      video.srcObject = stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: "environment" } }
+        });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("Erro ao acessar a câmera traseira: " + err.message);
+      }
     };
 
     captureBtn.onclick = () => {
@@ -67,7 +73,7 @@
       const a = document.createElement('a');
       a.href = imagemData;
       a.download = nomeFoto;
-      a.click(); // Força o download
+      a.click();
     };
   </script>
 </body>
