@@ -26,6 +26,7 @@
 </head>
 <body>
   <h2>Captura de Foto</h2>
+  <input type="number" id="altura" placeholder="Altura">
   <input type="number" id="distancia" placeholder="Distância">
   <input type="number" id="temperatura" placeholder="Temperatura">
   <input type="number" id="vazao" placeholder="Vazão">
@@ -51,16 +52,17 @@
     };
 
     captureBtn.onclick = () => {
+      const altura = document.getElementById('altura').value;
       const dist = document.getElementById('distancia').value;
       const temp = document.getElementById('temperatura').value;
       const vazao = document.getElementById('vazao').value;
 
-      if (!dist || !temp || !vazao) {
+      if (!altura || !dist || !temp || !vazao) {
         alert('Preencha todos os campos!');
         return;
       }
 
-      const nomeFoto = `D${dist}T${temp}V${vazao}.jpg`;
+      const nomeFoto = `A${altura}D${dist}T${temp}V${vazao}.jpg`;
 
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
