@@ -30,6 +30,7 @@
   <input type="number" id="distancia" placeholder="Distância">
   <input type="number" id="temperatura" placeholder="Temperatura">
   <input type="number" id="vazao" placeholder="Vazão">
+  <input type="number" id="queda" placeholder="Queda (Aprovado/Reprovado)">
   <button id="start">Iniciar Câmera Traseira</button>
   <video id="video" autoplay playsinline></video>
   <button id="capture">Capturar e Baixar</button>
@@ -56,13 +57,14 @@
       const dist = document.getElementById('distancia').value;
       const temp = document.getElementById('temperatura').value;
       const vazao = document.getElementById('vazao').value;
+      const queda = document.getElementById('queda').value.trim();
 
-      if (!altura || !dist || !temp || !vazao) {
+      if (!altura || !dist || !temp || !vazao || !queda) {
         alert('Preencha todos os campos!');
         return;
       }
 
-      const nomeFoto = `A${altura}D${dist}T${temp}V${vazao}.jpg`;
+      const nomeFoto = `A${altura}D${dist}T${temp}V${vazao}Q${queda}.jpg`;
 
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
